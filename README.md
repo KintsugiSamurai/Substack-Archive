@@ -43,4 +43,7 @@ Each file is a single post, named for its title and dated for original publicati
 
 The live version with comments and ongoing additions is at https://thekintsugisamurai.substack.com. This archive is a stable backup.
 
+## The Archive
+<!-- ARCHIVE START -->
+<!-- ARCHIVE END -->
 Kintsugi Samurai
