@@ -1,8 +1,9 @@
-name: Archive Substack posts
+name: Process feed file
 
 on:
-  schedule:
-    - cron: '0 * * * *'
+  push:
+    paths:
+      - 'feed.xml'
   workflow_dispatch:
 
 jobs:
@@ -18,23 +19,21 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install feedparser html2text requests
+        run: pip install feedparser html2text
 
-      - name: Fetch and archive
-        env:
-          FEED_URL: ${{ vars.FEED_URL }}
+      - name: Process feed
         run: python archive.py
 
       - name: Commit changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add posts/
+          git add -A posts/ feed.xml
           if git diff --staged --quiet; then
             echo "No changes"
           else
-            NEW=$(git diff --staged --name-only --diff-filter=A | wc -l)
-            MOD=$(git diff --staged --name-only --diff-filter=M | wc -l)
+            NEW=$(git diff --staged --name-only --diff-filter=A posts/ | wc -l)
+            MOD=$(git diff --staged --name-only --diff-filter=M posts/ | wc -l)
             git commit -m "Archive update: $NEW new, $MOD edited"
             git push
           fi
