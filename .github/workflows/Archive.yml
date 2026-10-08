@@ -1,0 +1,40 @@
+name: Archive Substack posts
+
+on:
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install feedparser html2text requests
+
+      - name: Fetch and archive
+        env:
+          FEED_URL: ${{ vars.FEED_URL }}
+        run: python archive.py
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add posts/
+          if git diff --staged --quiet; then
+            echo "No changes"
+          else
+            NEW=$(git diff --staged --name-only --diff-filter=A | wc -l)
+            MOD=$(git diff --staged --name-only --diff-filter=M | wc -l)
+            git commit -m "Archive update: $NEW new, $MOD edited"
+            git push
+          fi
