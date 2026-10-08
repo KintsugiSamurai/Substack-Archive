@@ -1,63 +1,40 @@
-import os
-import re
-import feedparser
-import html2text
-from datetime import datetime
-from pathlib import Path
+name: Archive Substack posts
 
-FEED_URL = os.environ.get("FEED_URL")
-POSTS_DIR = Path("posts")
-POSTS_DIR.mkdir(exist_ok=True)
+on:
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch:
 
-def sanitize_filename(name):
-    name = re.sub(r'[^\w\s-]', '', name).strip()
-    name = re.sub(r'[-\s]+', ' ', name)
-    return name
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
 
-def build_post(entry):
-    pub_date = datetime(*entry.published_parsed[:6])
-    date_str = pub_date.strftime("%Y-%m-%d")
-    title = entry.title
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-    converter = html2text.HTML2Text()
-    converter.body_width = 0
-    converter.ignore_links = False
+      - name: Install dependencies
+        run: pip install feedparser html2text requests
 
-    content_html = entry.get("content", [{}])[0].get("value") or entry.get("summary", "")
-    content_md = converter.handle(content_html).strip()
+      - name: Fetch and archive
+        env:
+          FEED_URL: ${{ vars.FEED_URL }}
+        run: python archive.py
 
-    header = f"""# {title}
-
-**Published:** {date_str}
-**Original:** {entry.link}
-
----
-
-"""
-    return date_str, title, header + content_md + "\n"
-
-def main():
-    if not FEED_URL:
-        print("FEED_URL not set")
-        return
-
-    feed = feedparser.parse(FEED_URL)
-
-    for entry in feed.entries:
-        date_str, title, content = build_post(entry)
-        safe_title = sanitize_filename(title)
-        filename = f"{date_str} {safe_title}.md"
-        filepath = POSTS_DIR / filename
-
-        if filepath.exists():
-            existing = filepath.read_text(encoding="utf-8")
-            if existing == content:
-                continue
-            print(f"Updated: {filename}")
-        else:
-            print(f"New: {filename}")
-
-        filepath.write_text(content, encoding="utf-8")
-
-if __name__ == "__main__":
-    main()
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add posts/
+          if git diff --staged --quiet; then
+            echo "No changes"
+          else
+            NEW=$(git diff --staged --name-only --diff-filter=A | wc -l)
+            MOD=$(git diff --staged --name-only --diff-filter=M | wc -l)
+            git commit -m "Archive update: $NEW new, $MOD edited"
+            git push
+          fi
