@@ -1,4 +1,3 @@
-import os
 import re
 import feedparser
 import html2text
@@ -6,13 +5,10 @@ from datetime import datetime
 from pathlib import Path
 
 FEED_FILE = Path("feed.xml")
-POSTS_DIR = Path("posts")
-POSTS_DIR.mkdir(exist_ok=True)
+README_FILE = Path("README.md")
 
-def sanitize_filename(name):
-    name = re.sub(r'[^\w\s-]', '', name).strip()
-    name = re.sub(r'[-\s]+', ' ', name)
-    return name
+ARCHIVE_START = "<!-- ARCHIVE START -->"
+ARCHIVE_END = "<!-- ARCHIVE END -->"
 
 def build_post(entry):
     pub_date = datetime(*entry.published_parsed[:6])
@@ -26,15 +22,15 @@ def build_post(entry):
     content_html = entry.get("content", [{}])[0].get("value") or entry.get("summary", "")
     content_md = converter.handle(content_html).strip()
 
-    header = f"""# {title}
+    return f"""# {title}
 
 **Published:** {date_str}
 **Original:** {entry.link}
 
 ---
 
+{content_md}
 """
-    return date_str, title, header + content_md + "\n"
 
 def main():
     if not FEED_FILE.exists():
@@ -46,22 +42,32 @@ def main():
 
     print(f"Number of entries: {len(feed.entries)}")
 
+    posts = []
     for entry in feed.entries:
-        date_str, title, content = build_post(entry)
-        safe_title = sanitize_filename(title)
-        filename = f"{date_str} {safe_title}.md"
-        filepath = POSTS_DIR / filename
+        posts.append(build_post(entry))
 
-        if filepath.exists():
-            existing = filepath.read_text(encoding="utf-8")
-            if existing == content:
-                print(f"Unchanged: {filename}")
-                continue
-            print(f"Updated: {filename}")
-        else:
-            print(f"New: {filename}")
+    posts.reverse()
 
-        filepath.write_text(content, encoding="utf-8")
+    archive_content = "\n\n---\n\n".join(posts)
+
+    if not README_FILE.exists():
+        print("README.md not found")
+        return
+
+    readme = README_FILE.read_text(encoding="utf-8")
+    block = f"{ARCHIVE_START}\n\n{archive_content}\n\n{ARCHIVE_END}"
+
+    if ARCHIVE_START in readme and ARCHIVE_END in readme:
+        pattern = re.compile(f"{re.escape(ARCHIVE_START)}.*?{re.escape(ARCHIVE_END)}", re.DOTALL)
+        new_readme = pattern.sub(block, readme)
+    else:
+        new_readme = readme.rstrip() + f"\n\n{block}\n"
+
+    if new_readme != readme:
+        README_FILE.write_text(new_readme, encoding="utf-8")
+        print("Updated README")
+    else:
+        print("README unchanged")
 
     FEED_FILE.unlink()
     print(f"Deleted {FEED_FILE}")
