@@ -1,5 +1,6 @@
 import os
 import re
+import requests
 import feedparser
 import html2text
 from datetime import datetime
@@ -8,6 +9,11 @@ from pathlib import Path
 FEED_URL = os.environ.get("FEED_URL")
 POSTS_DIR = Path("posts")
 POSTS_DIR.mkdir(exist_ok=True)
+
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Accept": "application/rss+xml, application/xml, text/xml, */*",
+}
 
 def sanitize_filename(name):
     name = re.sub(r'[^\w\s-]', '', name).strip()
@@ -42,9 +48,15 @@ def main():
         return
 
     print(f"Fetching feed from: {FEED_URL}")
-    feed = feedparser.parse(FEED_URL)
+    response = requests.get(FEED_URL, headers=HEADERS, timeout=30)
+    print(f"HTTP status: {response.status_code}")
 
-    print(f"Feed status: {feed.get('status', 'unknown')}")
+    if response.status_code != 200:
+        print(f"Failed to fetch feed: {response.status_code}")
+        print(f"Response: {response.text[:500]}")
+        return
+
+    feed = feedparser.parse(response.content)
     print(f"Feed bozo: {feed.bozo}")
     if feed.bozo:
         print(f"Bozo exception: {feed.bozo_exception}")
