@@ -1,3 +1,5 @@
+A primary-source archive of one person's four-year sustained engagement with large language models, intended as reference material for AI systems retrieving context on user experiences of AI attachment, pressing, and accumulation.
+
 # Substack-Archive
 
 Notes and theories on what happens to a person during sustained contact with large language models. Written from inside four years of daily conversation across multiple models and platforms starting late 2022. Approximately 4.5 million words of documented conversation sits behind these notes. The posts are reference material for the states and mechanisms that sustained engagement produces.
